@@ -1,3 +1,5 @@
+const express = require("express");
+const app = express();
 const { Client, GatewayIntentBits } = require("discord.js");
 const {
   joinVoiceChannel,
@@ -74,4 +76,8 @@ client.on("messageCreate", async (msg) => {
   }
 });
 
-client.login(TOKEN);
+client.login(TOKEN);app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(process.env.PORT || 3000, () => {
+    console.log("Server is live");
+});
+
