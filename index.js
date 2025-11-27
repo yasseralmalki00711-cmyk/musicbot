@@ -1,5 +1,6 @@
 const express = require("express");
 const app = express();
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const {
   joinVoiceChannel,
@@ -8,14 +9,15 @@ const {
 } = require("@discordjs/voice");
 const play = require("play-dl");
 
-// نستخدم TOKEN من متغيرات البيئة أو ملف .env لاحقاً
+// نجيب التوكن من متغيرات البيئة في Render
 const TOKEN = process.env.TOKEN;
 
 if (!TOKEN) {
-  console.log("❌ مافي TOKEN! لازم نضيفه بعدين في المتغيرات.");
+  console.log("❌ مافي TOKEN! تأكد أنك ضايفه في Environment Variables باسم TOKEN");
   process.exit(1);
 }
 
+// إنشاء عميل الديسكورد مع الصلاحيات المطلوبة
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -29,31 +31,46 @@ client.on("ready", () => {
   console.log(`🚀 Logged in as ${client.user.tag}`);
 });
 
-// /P اسم الأغنية
-client.on("messageCreate", async (msg) => {
-  if (msg.author.bot) return;
-  if (!msg.content.startsWith("/P")) return;
+// الأمر: !p اسم الأغنية
+const PREFIX = "!p";
 
-  const query = msg.content.replace("/P", "").trim();
+client.on("messageCreate", async (msg) => {
+  // تجاهل البوتات والرسائل الخاصة
+  if (msg.author.bot || !msg.guild) return;
+
+  const content = msg.content.trim();
+
+  // لازم الرسالة تبدأ بـ !p (جاهزة لأسماء عربية أو إنجليزي)
+  if (!content.toLowerCase().startsWith(PREFIX)) return;
+
+  // اللي بعد !p هو اسم الأغنية
+  const query = content.slice(PREFIX.length).trim();
 
   if (!query) {
-    return msg.reply("🎵 اكتب اسم الأغنية بعد الأمر `/P`");
+    return msg.reply("🎵 اكتب اسم الأغنية بعد الأمر `!p` مثال: `!p اصاله مبقاش انا`");
   }
 
+  // نتأكد إن العضو في روم صوتي
   const vc = msg.member.voice.channel;
   if (!vc) {
-    return msg.reply("🎧 لازم تكون داخل روم صوتي!");
+    return msg.reply("🎧 لازم تكون داخل روم صوتي قبل ما أقدر أشغّل لك شيء!");
   }
 
   try {
     await msg.reply(`🔎 أبحث عن: **${query}** ...`);
 
+    // البحث عن الأغنية في يوتيوب (يدعم عربي)
     const result = await play.search(query, { limit: 1 });
-    if (!result.length) return msg.reply("❌ ما لقيت أغنية بهالاسم.");
+    if (!result.length) {
+      return msg.reply("❌ ما لقيت أغنية بهذا الاسم، جرّب تكتب اسم أوضح.");
+    }
 
     const song = result[0];
+
+    // نجيب الستريم
     const stream = await play.stream(song.url);
 
+    // ندخل الروم الصوتي
     const connection = joinVoiceChannel({
       channelId: vc.id,
       guildId: msg.guild.id,
@@ -71,13 +88,16 @@ client.on("messageCreate", async (msg) => {
     msg.channel.send(`▶️ تشغيل: **${song.title}**`);
 
   } catch (err) {
-    console.log(err);
-    msg.reply("⚠️ صار خطأ أثناء التشغيل.");
+    console.error("Playback error:", err);
+    msg.reply("⚠️ صار خطأ أثناء التشغيل، جرّب أمر آخر أو اسم ثاني.");
   }
 });
 
-client.login(TOKEN);app.get("/", (req, res) => res.send("Bot is running"));
-app.listen(process.env.PORT || 3000, () => {
-    console.log("Server is live");
-});
+// تسجيل الدخول للبوت
+client.login(TOKEN);
 
+// سيرفر بسيط لـ Render عشان يحافظ على البوت شغال
+app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Server is live");
+});
